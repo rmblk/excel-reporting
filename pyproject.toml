@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "excel-reporting"
+version = "0.1.0"
+description = "Reporting framework"
+requires-python = ">=3.13"
+
+dependencies = [
+    "duckdb==1.5.5",
+    "xlsxwriter==3.2.9"
+]
+
+[project.scripts]
+excel-reporting = "excel_reporting:run"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
