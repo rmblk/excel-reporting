@@ -49,6 +49,9 @@ class _FormatRegistry:
 class Section:
     def __init__(self) -> None:
         self._cells: dict[tuple[int, int], tuple[Any, Format | None]] = {}
+        self._merged_ranges: list[
+            tuple[int, int, int, int, Any, Format | None]
+        ] = []
         self.shape: tuple[int, int] = (0, 0)
 
     def write(
@@ -76,6 +79,23 @@ class Section:
         self._cells[(row, col)] = (value, format)
         self.shape = (max(self.shape[0], row + 1), max(self.shape[1], col + 1))
 
+    def merge_range(
+        self,
+        first_row: int,
+        first_col: int,
+        last_row: int,
+        last_col: int,
+        value: Any,
+        format: Format | None = None,
+    ) -> None:
+        self._merged_ranges.append(
+            (first_row, first_col, last_row, last_col, value, format)
+        )
+        self.shape = (
+            max(self.shape[0], last_row + 1),
+            max(self.shape[1], last_col + 1),
+        )
+
     def get_cells(
         self, row: int = 0, col: int = 0
     ) -> dict[tuple[int, int], tuple[Any, Format | None]]:
@@ -88,6 +108,24 @@ class Section:
             (r + row, c + col): (value, format)
             for (r, c), (value, format) in self._cells.items()
         }
+
+    def get_merged_ranges(
+        self, row: int = 0, col: int = 0
+    ) -> list[tuple[int, int, int, int, Any, Format | None]]:
+        if row < 0 or col < 0:
+            raise ValueError("Row and column indices must be non-negative.")
+
+        return [
+            (
+                first_row + row,
+                first_col + col,
+                last_row + row,
+                last_col + col,
+                value,
+                format,
+            )
+            for first_row, first_col, last_row, last_col, value, format in self._merged_ranges
+        ]
 
 
 class Worksheet(Section):
@@ -107,6 +145,12 @@ class Worksheet(Section):
     ) -> None:
         for (r, c), (value, format) in section.get_cells(start_row, start_col).items():
             self.write(r, c, value, format)
+        for first_row, first_col, last_row, last_col, value, format in section.get_merged_ranges(
+            start_row, start_col
+        ):
+            self.merge_range(
+                first_row, first_col, last_row, last_col, value, format
+            )
 
 
 class Workbook:
@@ -142,6 +186,17 @@ class Workbook:
     def flush(self) -> None:
         for name, wrapper in self.worksheets.items():
             worksheet = self.workbook.add_worksheet(name)
+            for first_row, first_col, last_row, last_col, value, format in wrapper.get_merged_ranges():
+                xlsx_format = self.registry.register(format)
+                worksheet.merge_range(
+                    first_row,
+                    first_col,
+                    last_row,
+                    last_col,
+                    value,
+                    xlsx_format,
+                )
+
             cells_dict = wrapper.get_cells()
             cell_keys = [key for key in wrapper.get_cells().keys()]
             cell_keys.sort()

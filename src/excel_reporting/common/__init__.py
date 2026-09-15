@@ -2,8 +2,6 @@ from os import getenv
 from datetime import date, timedelta
 
 from polars import DataFrame
-from xlsxwriter import Workbook
-from xlsxwriter.worksheet import Worksheet
 from xlsxwriter.utility import (
     xl_rowcol_to_cell,
     xl_cell_to_rowcol,
@@ -13,7 +11,14 @@ from xlsxwriter.utility import (
 )
 
 from .util import get_azure_df
-from .excel import to_excel_date, write_df_to_excel
+from .excel import (
+    to_excel_date,
+    write_df_to_excel,
+    Format,
+    Section,
+    Worksheet,
+    Workbook,
+)
 
 TODAY = date.today() - timedelta(days=1)
 EXCEL_TODAY = to_excel_date(TODAY)
