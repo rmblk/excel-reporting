@@ -5,6 +5,7 @@ from polars import DataFrame
 import duckdb
 
 _CONNECTION_STRING = getenv("XLR_AZURE_CONNECTION_STRING")
+_BLOB_PATH_ROOT = getenv("XLR_BLOB_PATH_ROOT", "")
 
 
 def get_azure_df(path: str, columns: list[str] | None = None) -> DataFrame:
@@ -18,7 +19,7 @@ def get_azure_df(path: str, columns: list[str] | None = None) -> DataFrame:
         con.sql(
             f"CREATE OR REPLACE SECRET az (TYPE azure, CONNECTION_STRING '{_CONNECTION_STRING}');"
         )
-        df = con.sql(f"SELECT {select_stmt} FROM read_parquet('{path}');").pl()
+        df = con.sql(f"SELECT {select_stmt} FROM read_parquet('{_BLOB_PATH_ROOT}{path}');").pl()
     except Exception as e:
         print(f"Error connecting to Azure: {e}")
         raise e

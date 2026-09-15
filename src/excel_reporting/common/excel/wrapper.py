@@ -183,7 +183,7 @@ class Workbook:
         self.worksheets[name or f"Sheet{len(self.worksheets)}"] = wrapper
         return wrapper
 
-    def flush(self) -> None:
+    def _flush(self) -> None:
         for name, wrapper in self.worksheets.items():
             worksheet = self.workbook.add_worksheet(name)
             for first_row, first_col, last_row, last_col, value, format in wrapper.get_merged_ranges():
@@ -212,6 +212,8 @@ class Workbook:
                 worksheet.set_column_pixels(col, col, pixels)  # Convert pixels to width
 
     def close(self) -> None:
+        if self.data is None:
+            self._flush()
         self.workbook.close()
         self.data = self._buffer.getvalue()
         self._buffer.close()
