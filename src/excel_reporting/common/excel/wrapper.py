@@ -1,6 +1,7 @@
 from io import BytesIO
 from typing import Any
 from os import PathLike
+from datetime import datetime
 from collections.abc import Mapping
 
 from xlsxwriter import Workbook as _Workbook
@@ -49,9 +50,7 @@ class _FormatRegistry:
 class Section:
     def __init__(self) -> None:
         self._cells: dict[tuple[int, int], tuple[Any, Format | None]] = {}
-        self._merged_ranges: list[
-            tuple[int, int, int, int, Any, Format | None]
-        ] = []
+        self._merged_ranges: list[tuple[int, int, int, int, Any, Format | None]] = []
         self.shape: tuple[int, int] = (0, 0)
 
     def write(
@@ -145,12 +144,15 @@ class Worksheet(Section):
     ) -> None:
         for (r, c), (value, format) in section.get_cells(start_row, start_col).items():
             self.write(r, c, value, format)
-        for first_row, first_col, last_row, last_col, value, format in section.get_merged_ranges(
-            start_row, start_col
-        ):
-            self.merge_range(
-                first_row, first_col, last_row, last_col, value, format
-            )
+        for (
+            first_row,
+            first_col,
+            last_row,
+            last_col,
+            value,
+            format,
+        ) in section.get_merged_ranges(start_row, start_col):
+            self.merge_range(first_row, first_col, last_row, last_col, value, format)
 
 
 class Workbook:
@@ -173,6 +175,7 @@ class Workbook:
         options["in_memory"] = True
 
         self._buffer = BytesIO()
+        self.last_flushed: datetime | None = None
         self.data: bytes | None = None
         self.workbook = _Workbook(self._buffer, options)
         self.registry = _FormatRegistry(self.workbook)
@@ -183,10 +186,17 @@ class Workbook:
         self.worksheets[name or f"Sheet{len(self.worksheets)}"] = wrapper
         return wrapper
 
-    def _flush(self) -> None:
+    def flush(self) -> None:
         for name, wrapper in self.worksheets.items():
             worksheet = self.workbook.add_worksheet(name)
-            for first_row, first_col, last_row, last_col, value, format in wrapper.get_merged_ranges():
+            for (
+                first_row,
+                first_col,
+                last_row,
+                last_col,
+                value,
+                format,
+            ) in wrapper.get_merged_ranges():
                 xlsx_format = self.registry.register(format)
                 worksheet.merge_range(
                     first_row,
@@ -210,10 +220,11 @@ class Workbook:
 
             for col, pixels in wrapper._cols.items():
                 worksheet.set_column_pixels(col, col, pixels)  # Convert pixels to width
+        self.last_flushed = datetime.now()
 
     def close(self) -> None:
-        if self.data is None:
-            self._flush()
+        if self.last_flushed is None:
+            self.flush()
         self.workbook.close()
         self.data = self._buffer.getvalue()
         self._buffer.close()
